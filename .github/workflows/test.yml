@@ -17,6 +17,10 @@ on:
   pull_request:
     branches: [main, master, develop]
 
+# Restrict GITHUB_TOKEN permissions to the minimum required
+permissions:
+  contents: read
+
 jobs:
   # ---------------------------------------------------------------------------
   # Job 1: Validate Shell Scripts
