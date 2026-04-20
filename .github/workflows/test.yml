@@ -151,14 +151,14 @@ jobs:
 
       - name: Wait for API to be ready
         run: |
-          echo "Waiting up to 60 seconds for the API to start..."
-          for i in $(seq 1 60); do
+          echo "Waiting up to 120 seconds for the API to start..."
+          for i in $(seq 1 120); do
             if curl -sf http://localhost:3300/api/0.3/types > /dev/null 2>&1; then
               echo "API is ready after ${i} seconds"
               break
             fi
-            if [ $i -eq 60 ]; then
-              echo "ERROR: API did not start within 60 seconds"
+            if [ $i -eq 120 ]; then
+              echo "ERROR: API did not start within 120 seconds"
               docker compose logs api
               exit 1
             fi
