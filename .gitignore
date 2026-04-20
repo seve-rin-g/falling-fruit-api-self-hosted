@@ -69,8 +69,8 @@ web_modules/
 .env
 .env.*
 !.env.example
-# Allow templates directory (contains template env files)
-!templates/
+# Allow templates directory env files (these are templates, not secrets)
+!templates/.env.*
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
