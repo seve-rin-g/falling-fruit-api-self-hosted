@@ -1,0 +1,65 @@
+                    GNU GENERAL PUBLIC LICENSE
+                       Version 3, 29 June 2007
+
+ Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
+ Everyone is permitted to copy and distribute verbatim copies
+ of this license document, but changing it is not allowed.
+
+                            Preamble
+
+  The GNU General Public License is a free, copyleft license for
+software and other kinds of works.
+
+  For the precise terms and conditions for copying, distribution and
+modification, see the full license text at:
+https://www.gnu.org/licenses/gpl-3.0.txt
+
+                       TERMS AND CONDITIONS
+
+  0. Definitions.
+
+  "This License" refers to version 3 of the GNU General Public License.
+
+  "The Program" refers to any copyrightable work licensed under this
+License.  Each licensee is addressed as "you".
+
+  To "modify" a work means to copy from or adapt all or part of the work
+in a fashion requiring copyright permission, other than the making of an
+exact copy.
+
+  A "covered work" means either the unmodified Program or a work based
+on the Program.
+
+  To "propagate" a work means to do anything with it that, without
+permission, would make you directly or secondarily liable for
+infringement under applicable copyright law, except executing it on a
+computer or transmitting it to a computer.
+
+  "Corresponding Source" for a work in object code form means all the
+source code needed to generate, install, and (for an executable work)
+run the object code and modify the work, including scripts to control
+those activities.
+
+  Additional terms, added by a third party, are not part of this License.
+This License will terminate automatically if you fail to comply with its
+terms.
+
+  For more information about the GNU General Public License and how it
+applies to this work, see: https://www.gnu.org/licenses/gpl-3.0.html
+
+                 END OF TERMS AND CONDITIONS
+
+    Copyright (C) 2024 Falling Fruit API Self-Hosted Contributors
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.

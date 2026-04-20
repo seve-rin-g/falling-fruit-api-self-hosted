@@ -1,0 +1,137 @@
+# =============================================================================
+# Falling Fruit API — Docker Compose (Development)
+# =============================================================================
+# Starts the API and a local PostgreSQL/PostGIS database for development.
+#
+# Usage:
+#   docker compose up -d           # Start all services in background
+#   docker compose logs -f         # Follow logs
+#   docker compose down            # Stop services (keeps data)
+#   docker compose down -v         # Stop and remove all data (fresh start)
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # API Service — Node.js Falling Fruit API
+  # ---------------------------------------------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    container_name: falling-fruit-api
+
+    ports:
+      # Map container port to host port: host:container
+      - "3300:3300"
+
+    environment:
+      NODE_ENV: development
+      PORT: 3300
+      API_BASE: /api/0.3
+      # Database connection uses "db" as hostname (Docker service name)
+      DB: postgres://ffuser:ffpassword@db:5432/falling_fruit
+      JWT_SECRET: dev-jwt-secret-change-me-in-production
+      API_KEY: dev-api-key-change-me
+      # Optional: set to true to see SQL queries in logs
+      LOG_QUERIES: "false"
+
+    # Load additional environment variables from .env file (if exists)
+    env_file:
+      - path: ./falling-fruit-api/.env
+        required: false
+
+    volumes:
+      # Mount the API source code for live editing
+      # Changes take effect after: docker compose restart api
+      - ./falling-fruit-api:/app
+      # Separate volume for node_modules (prevents host override)
+      - api_node_modules:/app/node_modules
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+    networks:
+      - falling-fruit-network
+
+    # Restart policy: always restart if the container exits
+    restart: unless-stopped
+
+    # Health check for the API
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3300/api/0.3/types"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+    # Resource limits (useful for development to prevent memory issues)
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  # ---------------------------------------------------------------------------
+  # Database Service — PostgreSQL 14 with PostGIS 3
+  # ---------------------------------------------------------------------------
+  db:
+    # postgis/postgis includes PostgreSQL + PostGIS pre-installed
+    image: postgis/postgis:14-3.3-alpine
+    container_name: falling-fruit-db
+
+    environment:
+      POSTGRES_DB: falling_fruit
+      POSTGRES_USER: ffuser
+      POSTGRES_PASSWORD: ffpassword
+      # Performance tuning for development
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+
+    ports:
+      # Expose database on host for direct psql access during development
+      # Remove this in production (database should only be internal)
+      - "5432:5432"
+
+    volumes:
+      # Persist database data between container restarts
+      - postgres_data:/var/lib/postgresql/data
+      # Run initialization scripts on first container start
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+
+    networks:
+      - falling-fruit-network
+
+    restart: unless-stopped
+
+    # Health check — waits until PostgreSQL is accepting connections
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ffuser -d falling_fruit"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+# =============================================================================
+# Volumes — persistent data storage
+# =============================================================================
+volumes:
+  # PostgreSQL database files (survives container restarts)
+  postgres_data:
+    driver: local
+
+  # Node.js dependencies (separate from host directory mount)
+  api_node_modules:
+    driver: local
+
+# =============================================================================
+# Networks — internal communication between containers
+# =============================================================================
+networks:
+  falling-fruit-network:
+    driver: bridge
