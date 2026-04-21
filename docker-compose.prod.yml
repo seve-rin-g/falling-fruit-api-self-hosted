@@ -1,0 +1,107 @@
+# =============================================================================
+# Falling Fruit API — Docker Compose (Production-like Testing)
+# =============================================================================
+# Tests the API in a production-like configuration before deploying to EC2.
+# Unlike docker-compose.yml, this uses built images without source mounts.
+#
+# Usage:
+#   docker compose -f docker-compose.prod.yml up -d
+#   docker compose -f docker-compose.prod.yml logs -f
+#   docker compose -f docker-compose.prod.yml down -v
+# =============================================================================
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+
+    container_name: falling-fruit-api-prod
+
+    ports:
+      - "3300:3300"
+
+    environment:
+      NODE_ENV: production
+      PORT: 3300
+      API_BASE: /api/0.3
+      DB: postgres://ffuser:${DB_PASSWORD:-prod-password-change-me}@db:5432/falling_fruit
+      JWT_SECRET: ${JWT_SECRET:-prod-jwt-secret-change-me-use-openssl-rand-hex-64}
+      API_KEY: ${API_KEY:-prod-api-key-change-me}
+      LOG_QUERIES: "false"
+      NODE_OPTIONS: --max-old-space-size=512
+
+    # Load from .env.production if present
+    env_file:
+      - path: ./.env.production
+        required: false
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+    networks:
+      - falling-fruit-prod-network
+
+    restart: always
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3300/api/0.3/types"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    # Stricter resource limits for production testing
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+        reservations:
+          memory: 128M
+
+  db:
+    image: postgis/postgis:14-3.3-alpine
+
+    container_name: falling-fruit-db-prod
+
+    environment:
+      POSTGRES_DB: falling_fruit
+      POSTGRES_USER: ffuser
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-prod-password-change-me}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+
+    # Do NOT expose database port externally in production
+    expose:
+      - "5432"
+
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+
+    networks:
+      - falling-fruit-prod-network
+
+    restart: always
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ffuser -d falling_fruit"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+volumes:
+  postgres_prod_data:
+    driver: local
+
+networks:
+  falling-fruit-prod-network:
+    driver: bridge

@@ -69,6 +69,8 @@ web_modules/
 .env
 .env.*
 !.env.example
+# Allow templates directory env files (these are templates, not secrets)
+!templates/.env.*
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
@@ -137,3 +139,37 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# =============================================================================
+# Falling Fruit API Self-Hosted Specific
+# =============================================================================
+
+# Cloned API source code (users clone this themselves)
+falling-fruit-api/
+
+# Database backup files
+*.sql.gz
+*.dump
+*.backup
+*.restore
+
+# Docker override files
+docker-compose.override.yml
+
+# Temporary import files
+/tmp/
+
+# Systemd service copies outside templates/
+*.service
+!templates/*.service
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/

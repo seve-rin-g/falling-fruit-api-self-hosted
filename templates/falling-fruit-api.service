@@ -1,0 +1,74 @@
+# =============================================================================
+# Falling Fruit API — Systemd Service File
+# =============================================================================
+# This file controls how the Falling Fruit API runs as a system service
+# on your AWS EC2 (Ubuntu) instance.
+#
+# The setup.sh script automatically installs this file to:
+#   /etc/systemd/system/falling-fruit-api.service
+#
+# Manual installation:
+#   sudo cp templates/falling-fruit-api.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable falling-fruit-api
+#   sudo systemctl start falling-fruit-api
+# =============================================================================
+
+[Unit]
+# Human-readable service name and description
+Description=Falling Fruit API (Node.js)
+
+# Start after PostgreSQL and network are ready
+After=network.target postgresql.service
+
+# If PostgreSQL is on the same machine, require it before starting
+Requires=network.target
+
+[Service]
+# Run as this user (not root for security)
+User=ubuntu
+Group=ubuntu
+
+# Working directory for the API
+WorkingDirectory=/opt/falling-fruit-api
+
+# Load environment variables from this file
+EnvironmentFile=/etc/falling-fruit-api/.env
+
+# The command to start the API
+# Uses yarn start (from package.json scripts)
+ExecStart=/usr/bin/yarn start
+
+# If the process crashes, restart it automatically
+Restart=always
+
+# Wait 5 seconds before restarting (prevents rapid restart loops)
+RestartSec=5
+
+# Give the service up to 30 seconds to start before systemd gives up
+TimeoutStartSec=30
+
+# Give the service up to 30 seconds to stop gracefully before force-killing
+TimeoutStopSec=30
+
+# Limit memory usage (adjust for your instance size)
+# Uncomment and set based on your EC2 instance:
+# t3.micro (1 GB RAM):  MemoryLimit=512M
+# t3.small (2 GB RAM):  MemoryLimit=1024M
+# MemoryLimit=512M
+
+# Security hardening
+# Prevent the process from gaining new privileges
+NoNewPrivileges=true
+
+# Restrict what the process can do
+PrivateTmp=true
+
+# Log to systemd journal (view with: journalctl -u falling-fruit-api)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=falling-fruit-api
+
+[Install]
+# Enable this service to start on multi-user system boot
+WantedBy=multi-user.target
