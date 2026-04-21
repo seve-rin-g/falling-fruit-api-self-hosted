@@ -147,7 +147,7 @@ jobs:
       - name: Build and start services
         run: |
           docker compose up -d --build
-          sleep 2  # Give Docker a moment to fully start services
+          sleep 5  # Give Docker a moment to fully start services
           echo "Waiting for services to be healthy..."
 
       - name: Wait for API to be ready
