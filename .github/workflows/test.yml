@@ -152,15 +152,16 @@ jobs:
 
       - name: Wait for API to be ready
         run: |
-          echo "Waiting up to 120 seconds for the API to start..."
-          for i in $(seq 1 120); do
+          echo "Waiting up to 160 seconds for the API to start..."
+          for i in $(seq 1 160); do
             if curl -sf http://localhost:3300/api/0.3/types > /dev/null 2>&1; then
               echo "API is ready after ${i} seconds"
               break
             fi
-            if [ $i -eq 120 ]; then
-              echo "ERROR: API did not start within 120 seconds"
-              docker compose logs api
+            if [ $i -eq 160 ]; then
+              EXPIRED_AT=$(date '+%Y-%m-%dT%H:%M:%S%z')
+              echo "ERROR: API did not start within 160 seconds (timeout expired at ${EXPIRED_AT})"
+              docker compose logs --timestamps api
               exit 1
             fi
             sleep 1
