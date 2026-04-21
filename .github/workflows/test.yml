@@ -102,7 +102,6 @@ jobs:
       - name: Create stub falling-fruit-api for testing
         run: |
           mkdir -p falling-fruit-api
-          # Create a minimal Node.js API server for testing
           cat > falling-fruit-api/package.json << 'EOF'
           {
             "name": "falling-fruit-api-stub",
@@ -119,7 +118,6 @@ jobs:
           const API_KEY = process.env.API_KEY || '';
 
           const server = http.createServer((req, res) => {
-            // Check API key
             if (API_KEY && req.headers['x-api-key'] !== API_KEY) {
               res.writeHead(401, {'Content-Type': 'application/json'});
               res.end(JSON.stringify({error: 'Unauthorized'}));
@@ -142,11 +140,14 @@ jobs:
             console.log(`Stub API running on http://localhost:${PORT}${BASE}`);
           });
           APPEOF
-          echo "" > falling-fruit-api/yarn.lock
+          touch falling-fruit-api/yarn.lock
+          echo "Stub API files created"
+          ls -la falling-fruit-api/
 
       - name: Build and start services
         run: |
           docker compose up -d --build
+          sleep 2  # Give Docker a moment to fully start services
           echo "Waiting for services to be healthy..."
 
       - name: Wait for API to be ready
