@@ -73,6 +73,40 @@ services:
           memory: 512M
 
   # ---------------------------------------------------------------------------
+  # Importer Service — one-shot CSV importer
+  # ---------------------------------------------------------------------------
+  # Runs after the DB is healthy and imports data/locations.csv.bz2 into the
+  # database. Set restart: "no" so it runs exactly once.
+  #
+  # Run manually:
+  #   docker compose run --rm importer
+  # ---------------------------------------------------------------------------
+  importer:
+    image: debian:bookworm-slim
+    container_name: falling-fruit-importer
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: ffuser
+      DB_NAME: falling_fruit
+      PGPASSWORD: ffpassword
+    volumes:
+      - ./data:/data:ro
+      - ./scripts:/scripts:ro
+    command: >
+      bash -c "
+        apt-get update -qq &&
+        apt-get install -y -qq --no-install-recommends postgresql-client bzip2 python3 ca-certificates &&
+        bash /scripts/import-from-csv.sh /data/locations.csv.bz2
+      "
+    networks:
+      - falling-fruit-network
+    restart: "no"
+
+  # ---------------------------------------------------------------------------
   # Database Service — PostgreSQL 14 with PostGIS 3
   # ---------------------------------------------------------------------------
   db:
