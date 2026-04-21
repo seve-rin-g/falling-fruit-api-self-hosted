@@ -1,0 +1,70 @@
+# =============================================================================
+# .dockerignore — Docker Build Optimization
+# =============================================================================
+# Files listed here are excluded from the Docker build context.
+# This speeds up builds and reduces image size.
+# =============================================================================
+
+# Git
+.git
+.gitignore
+.github
+
+# Documentation (not needed in container)
+*.md
+docs/
+
+# Node.js dependencies (installed fresh in container)
+node_modules/
+falling-fruit-api/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.yarn-integrity
+
+# Environment files (secrets should be passed at runtime, not baked in)
+.env
+.env.*
+!.env.example
+
+# Development configuration
+docker-compose*.yml
+Dockerfile*
+
+# Test and coverage files
+coverage/
+.nyc_output/
+*.test.js
+*.spec.js
+__tests__/
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+tmp/
+temp/
+.cache/
+
+# Backup files
+*.sql.gz
+*.dump
+*.backup

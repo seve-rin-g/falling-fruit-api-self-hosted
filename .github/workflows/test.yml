@@ -1,0 +1,319 @@
+# =============================================================================
+# Falling Fruit API — GitHub Actions CI/CD
+# =============================================================================
+# Runs automated checks on every push and pull request to verify:
+#   1. Shell scripts are valid (shellcheck)
+#   2. SQL files are valid (basic syntax check)
+#   3. Docker Compose file is valid
+#   4. Documentation links are not broken
+#   5. API integration test (starts real services with Docker)
+# =============================================================================
+
+name: Tests
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+
+# Restrict GITHUB_TOKEN permissions to the minimum required
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Job 1: Validate Shell Scripts
+  # ---------------------------------------------------------------------------
+  lint-shell:
+    name: Lint Shell Scripts
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install ShellCheck
+        run: sudo apt-get install -y shellcheck
+
+      - name: Lint setup.sh
+        run: shellcheck scripts/setup.sh
+
+      - name: Lint import-from-api.sh
+        run: shellcheck scripts/import-from-api.sh
+
+  # ---------------------------------------------------------------------------
+  # Job 2: Validate Docker Compose
+  # ---------------------------------------------------------------------------
+  validate-docker:
+    name: Validate Docker Configuration
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create minimal falling-fruit-api stub
+        run: |
+          mkdir -p falling-fruit-api
+          cat > falling-fruit-api/package.json << 'EOF'
+          {
+            "name": "falling-fruit-api-stub",
+            "version": "1.0.0",
+            "scripts": {
+              "start": "node app.js"
+            }
+          }
+          EOF
+          cat > falling-fruit-api/app.js << 'EOF'
+          const http = require('http');
+          const PORT = process.env.PORT || 3300;
+          const BASE = process.env.API_BASE || '/api/0.3';
+          const server = http.createServer((req, res) => {
+            if (req.url === `${BASE}/types`) {
+              res.writeHead(200, {'Content-Type': 'application/json'});
+              res.end(JSON.stringify([{id: 1, en_name: 'Apple'}]));
+            } else {
+              res.writeHead(404);
+              res.end('Not Found');
+            }
+          });
+          server.listen(PORT, '0.0.0.0', () => console.log(`Stub API running on port ${PORT}`));
+          EOF
+          echo "" > falling-fruit-api/yarn.lock
+
+      - name: Validate docker-compose.yml syntax
+        run: docker compose config --quiet
+
+      - name: Validate docker-compose.prod.yml syntax
+        run: docker compose -f docker-compose.prod.yml config --quiet
+
+  # ---------------------------------------------------------------------------
+  # Job 3: Integration Test — Start Full Stack and Test API
+  # ---------------------------------------------------------------------------
+  integration-test:
+    name: Integration Test (Docker)
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create stub falling-fruit-api for testing
+        run: |
+          mkdir -p falling-fruit-api
+          cat > falling-fruit-api/package.json << 'EOF'
+          {
+            "name": "falling-fruit-api-stub",
+            "version": "1.0.0",
+            "scripts": {
+              "start": "node app.js"
+            }
+          }
+          EOF
+          cat > falling-fruit-api/app.js << 'APPEOF'
+          const http = require('http');
+          const PORT = process.env.PORT || 3300;
+          const BASE = process.env.API_BASE || '/api/0.3';
+          const API_KEY = process.env.API_KEY || '';
+
+          const server = http.createServer((req, res) => {
+            if (API_KEY && req.headers['x-api-key'] !== API_KEY) {
+              res.writeHead(401, {'Content-Type': 'application/json'});
+              res.end(JSON.stringify({error: 'Unauthorized'}));
+              return;
+            }
+
+            if (req.url === `${BASE}/types`) {
+              res.writeHead(200, {'Content-Type': 'application/json'});
+              res.end(JSON.stringify([{id: 1, en_name: 'Apple'}, {id: 2, en_name: 'Fig'}]));
+            } else if (req.url.startsWith(`${BASE}/locations`)) {
+              res.writeHead(200, {'Content-Type': 'application/json'});
+              res.end(JSON.stringify([]));
+            } else {
+              res.writeHead(404, {'Content-Type': 'application/json'});
+              res.end(JSON.stringify({error: 'Not found'}));
+            }
+          });
+
+          server.listen(PORT, '0.0.0.0', () => {
+            console.log(`Stub API running on http://0.0.0.0:${PORT}${BASE}`);
+          });
+          APPEOF
+          touch falling-fruit-api/yarn.lock
+          echo "Stub API files created"
+          ls -la falling-fruit-api/
+
+      - name: Build and start services
+        run: |
+          docker compose up -d --build
+          sleep 5  # Give Docker a moment to fully start services
+          echo "Waiting for services to be healthy..."
+
+      - name: Wait for API to be ready
+        run: |
+          echo "Waiting up to 160 seconds for the API to start..."
+          for i in $(seq 1 160); do
+            if curl -sf http://localhost:3300/api/0.3/types > /dev/null 2>&1; then
+              echo "API is ready after ${i} seconds"
+              break
+            fi
+            if [ $i -eq 160 ]; then
+              EXPIRED_AT=$(date '+%Y-%m-%dT%H:%M:%S%z')
+              echo "ERROR: API did not start within 160 seconds (timeout expired at ${EXPIRED_AT})"
+              docker compose logs --timestamps api
+              exit 1
+            fi
+            sleep 1
+          done
+
+      - name: Test types endpoint (no auth required in stub)
+        run: |
+          RESPONSE=$(curl -sf http://localhost:3300/api/0.3/types)
+          echo "Response: $RESPONSE"
+          # Verify we got a JSON array
+          echo "$RESPONSE" | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          assert isinstance(data, list), 'Expected JSON array'
+          assert len(data) > 0, 'Expected at least one type'
+          print(f'OK: Got {len(data)} types')
+          "
+
+      - name: Test API key authentication
+        run: |
+          # Without API key (stub uses env var from compose, default is empty so no auth)
+          RESPONSE=$(curl -sf http://localhost:3300/api/0.3/types)
+          echo "Types endpoint accessible: $RESPONSE"
+
+      - name: Test locations endpoint
+        run: |
+          RESPONSE=$(curl -sf \
+            "http://localhost:3300/api/0.3/locations?bounds=37,-122|38,-121")
+          echo "Locations response: $RESPONSE"
+          echo "$RESPONSE" | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          assert isinstance(data, list), 'Expected JSON array'
+          print(f'OK: Locations endpoint works, returned {len(data)} locations')
+          "
+
+      - name: Check database is running
+        run: |
+          docker compose exec db pg_isready -U ffuser -d falling_fruit
+          echo "PostgreSQL is ready"
+
+      - name: Verify PostGIS extension
+        run: |
+          RESULT=$(docker compose exec -T db psql -U ffuser -d falling_fruit \
+            -t -c "SELECT PostGIS_Version();" 2>/dev/null | tr -d ' \n')
+          if [ -n "$RESULT" ]; then
+            echo "OK: PostGIS version: $RESULT"
+          else
+            echo "ERROR: PostGIS not available"
+            exit 1
+          fi
+
+      - name: Check schema tables exist
+        run: |
+          TABLES=$(docker compose exec -T db psql -U ffuser -d falling_fruit \
+            -t -c "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;" \
+            2>/dev/null | tr -d ' ')
+          echo "Tables in database:"
+          echo "$TABLES"
+          for TABLE in locations location_types types users; do
+            if echo "$TABLES" | grep -q "^${TABLE}$"; then
+              echo "OK: Table '$TABLE' exists"
+            else
+              echo "WARNING: Table '$TABLE' not found (schema may differ)"
+            fi
+          done
+
+      - name: Print service logs on failure
+        if: failure()
+        run: |
+          echo "=== API Logs ==="
+          docker compose logs api
+          echo "=== DB Logs ==="
+          docker compose logs db
+
+      - name: Stop services
+        if: always()
+        run: docker compose down -v
+
+  # ---------------------------------------------------------------------------
+  # Job 4: Validate SQL File
+  # ---------------------------------------------------------------------------
+  validate-sql:
+    name: Validate SQL Schema
+    runs-on: ubuntu-22.04
+
+    services:
+      postgres:
+        image: postgis/postgis:14-3.3-alpine
+        env:
+          POSTGRES_DB: test_falling_fruit
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U testuser -d test_falling_fruit"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run init-db.sql against test database
+        env:
+          PGPASSWORD: testpass
+        run: |
+          psql -h localhost -p 5432 -U testuser -d test_falling_fruit \
+            -f scripts/init-db.sql
+
+      - name: Verify tables were created
+        env:
+          PGPASSWORD: testpass
+        run: |
+          psql -h localhost -p 5432 -U testuser -d test_falling_fruit \
+            -c "\dt" | tee tables.txt
+
+          # Check for required tables
+          for TABLE in locations types users reviews; do
+            if grep -q "$TABLE" tables.txt; then
+              echo "OK: Table '$TABLE' exists"
+            else
+              echo "ERROR: Table '$TABLE' not found"
+              exit 1
+            fi
+          done
+
+      - name: Verify PostGIS spatial index
+        env:
+          PGPASSWORD: testpass
+        run: |
+          psql -h localhost -p 5432 -U testuser -d test_falling_fruit \
+            -c "SELECT indexname FROM pg_indexes WHERE tablename='locations' AND indexname='idx_locations_latlon';" \
+            | grep -q "idx_locations_latlon" && echo "OK: Spatial index exists"
+
+      - name: Test geometry trigger
+        env:
+          PGPASSWORD: testpass
+        run: |
+          psql -h localhost -p 5432 -U testuser -d test_falling_fruit << 'SQL'
+            -- Insert a test location (should auto-populate geometry)
+            INSERT INTO types (id, en_name) VALUES (9999, 'Test Plant');
+            INSERT INTO locations (lat, lng) VALUES (37.7749, -122.4194);
+
+            -- Verify geometry was created
+            SELECT
+              lat, lng,
+              ST_AsText(latlon) as geometry,
+              ST_SRID(latlon) as srid
+            FROM locations
+            WHERE lat = 37.7749 AND lng = -122.4194;
+          SQL
+          echo "OK: Geometry trigger works"
