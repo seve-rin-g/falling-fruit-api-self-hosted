@@ -35,8 +35,13 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 -- =============================================================================
 
 CREATE TABLE IF NOT EXISTS types (
-    -- Unique identifier (matches the public Falling Fruit API)
-    id                  INTEGER PRIMARY KEY,
+    -- Unique identifier (matches the public Falling Fruit API).
+    -- SERIAL PRIMARY KEY so new types inserted without an explicit id receive unique ids.
+    -- Migration note: if upgrading an existing DB, run:
+    --   CREATE SEQUENCE IF NOT EXISTS types_id_seq;
+    --   ALTER TABLE types ALTER COLUMN id SET DEFAULT nextval('types_id_seq');
+    --   SELECT setval('types_id_seq', COALESCE(MAX(id), 0)) FROM types;
+    id                  SERIAL PRIMARY KEY,
 
     -- English common name (e.g., "Apple", "Fig")
     en_name             TEXT,
@@ -277,5 +282,6 @@ BEGIN
     RAISE NOTICE '  - postgis_topology';
     RAISE NOTICE '';
     RAISE NOTICE 'Next step: Import data using scripts/import-from-api.sh';
+    RAISE NOTICE '         or scripts/import-from-csv.sh data/locations.csv.bz2';
     RAISE NOTICE '=================================================';
 END $$;
