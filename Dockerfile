@@ -16,7 +16,7 @@
 # -----------------------------------------------------------------------------
 # Stage 1: Install dependencies
 # -----------------------------------------------------------------------------
-FROM node:20-alpine AS deps
+FROM node:16-alpine AS deps
 
 # Install build tools needed for native Node.js modules
 RUN apk add --no-cache \
@@ -36,7 +36,7 @@ RUN yarn install --frozen-lockfile
 # -----------------------------------------------------------------------------
 # Stage 2: Production dependencies only
 # -----------------------------------------------------------------------------
-FROM node:20-alpine AS prod-deps
+FROM node:16-alpine AS prod-deps
 
 WORKDIR /app
 COPY falling-fruit-api/package.json falling-fruit-api/yarn.lock* ./
@@ -47,7 +47,7 @@ RUN yarn install --frozen-lockfile --production
 # -----------------------------------------------------------------------------
 # Stage 3: Final runner image
 # -----------------------------------------------------------------------------
-FROM node:20-alpine AS runner
+FROM node:16-alpine AS runner
 
 # Install runtime dependencies
 RUN apk add --no-cache \
