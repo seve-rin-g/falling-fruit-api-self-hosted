@@ -79,5 +79,7 @@ EXPOSE 3300
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:${PORT:-3300}${API_BASE:-/api/0.3}/types || exit 1
 
+RUN echo "_________________ Falling Fruit API container is ready to serve requests on port 3300"
+
 # Start the API
 CMD ["yarn", "start"]
